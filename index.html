@@ -17,11 +17,10 @@ body {
     background: white;
     padding: 20px;
     border-radius: 8px;
-    width: 500px;
+    width: 700px;
+    margin: auto;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
-
-h2 { margin-top: 0; }
 
 select, input, button {
     width: 100%;
@@ -40,13 +39,20 @@ button:hover {
     background-color: #003d82;
 }
 
-.tabla {
-    margin-top: 20px;
-    font-size: 14px;
+table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.tabla td {
-    padding: 5px;
+th, td {
+    border: 1px solid #ccc;
+    padding: 6px;
+    text-align: center;
+}
+
+th {
+    background-color: #0056b3;
+    color: white;
 }
 </style>
 
@@ -57,52 +63,44 @@ button:hover {
 
 <h2>Registro de Participación</h2>
 
-<!-- EXCEL -->
 <h3>📂 Cargar desde Excel</h3>
 
-<label>Número de alumnos:</label>
-<input type="number" id="numAlumnos" placeholder="Ej: 30">
-
-<label>Subir Excel:</label>
+<input type="number" id="numAlumnos" placeholder="Número de alumnos">
 <input type="file" id="excelFile" accept=".xlsx, .xls">
-
-<button onclick="cargarExcel()">Cargar estudiantes desde Excel</button>
+<button onclick="cargarExcel()">Cargar Excel</button>
 
 <hr>
 
-<!-- MANUAL -->
-<h3>1️⃣ Registrar Estudiante</h3>
-<input type="text" id="nuevoEstudiante" placeholder="Nombre del estudiante">
+<h3>Agregar estudiante</h3>
+<input type="text" id="nuevoEstudiante" placeholder="Nombre">
 <button onclick="agregarEstudiante()">Agregar</button>
 
 <hr>
 
-<!-- PARTICIPACIÓN -->
-<h3>2️⃣ Asignar Participación</h3>
+<h3>Asignar puntaje</h3>
 
-<label>Sesión:</label>
-<select id="sesion">
-    <option value="">Seleccione sesión</option>
-</select>
+<select id="sesion"></select>
+<select id="estudiante"></select>
 
-<label>Estudiante:</label>
-<select id="estudiante">
-    <option value="">Seleccione estudiante</option>
-</select>
-
-<label>Nivel de rúbrica:</label>
 <select id="nivel">
-    <option value="">Seleccione nivel</option>
-    <option value="8">Destacado (8)</option>
-    <option value="6">Logrado (6)</option>
-    <option value="4">Intermedio (4)</option>
-    <option value="2">En proceso (2)</option>
-    <option value="0">En inicio (0)</option>
+<option value="">Nivel</option>
+<option value="8">8</option>
+<option value="6">6</option>
+<option value="4">4</option>
+<option value="2">2</option>
+<option value="0">0</option>
 </select>
 
-<button onclick="guardar()">Guardar Puntaje</button>
+<button onclick="guardar()">Guardar</button>
 
-<div class="tabla" id="resultado"></div>
+<div id="resultado"></div>
+
+<hr>
+
+<h3>📊 Tabla General</h3>
+<div id="tablaGeneral"></div>
+
+<button onclick="exportarHTML()">📤 Exportar para alumnos</button>
 
 </div>
 
@@ -119,10 +117,10 @@ for (let i = 1; i <= 7; i++) {
     document.getElementById("sesion").appendChild(option);
 }
 
-// agregar manual
+// agregar
 function agregarEstudiante() {
     let nombre = document.getElementById("nuevoEstudiante").value.trim();
-    if (nombre === "") return alert("Ingrese nombre");
+    if (!nombre) return alert("Ingrese nombre");
 
     estudiantes.push(nombre);
 
@@ -134,87 +132,146 @@ function agregarEstudiante() {
     document.getElementById("nuevoEstudiante").value = "";
 }
 
-// cargar desde excel
+// cargar excel
 function cargarExcel() {
-    let fileInput = document.getElementById("excelFile");
-    let numAlumnos = parseInt(document.getElementById("numAlumnos").value);
+    let file = document.getElementById("excelFile").files[0];
+    let n = parseInt(document.getElementById("numAlumnos").value);
 
-    if (!fileInput.files.length) {
-        return alert("Seleccione un archivo Excel");
-    }
+    if (!file) return alert("Suba archivo");
+    if (!n) return alert("Ingrese número");
 
-    if (!numAlumnos || numAlumnos <= 0) {
-        return alert("Ingrese número de alumnos válido");
-    }
-
-    let file = fileInput.files[0];
     let reader = new FileReader();
 
     reader.onload = function(e) {
         let data = new Uint8Array(e.target.result);
-        let workbook = XLSX.read(data, { type: 'array' });
+        let wb = XLSX.read(data, { type: 'array' });
+        let sheet = wb.Sheets[wb.SheetNames[0]];
 
-        let sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-        // limpiar lista previa
         estudiantes = [];
-        document.getElementById("estudiante").innerHTML = '<option value="">Seleccione estudiante</option>';
+        registros = {};
 
-        for (let i = 2; i < 2 + numAlumnos; i++) {
-            let cell = sheet["E" + i];
+        document.getElementById("estudiante").innerHTML = "";
 
-            if (cell && cell.v) {
-                let nombre = cell.v.toString().trim();
-
+        for (let i = 2; i < 2 + n; i++) {
+            let c = sheet["E" + i];
+            if (c && c.v) {
+                let nombre = c.v.toString().trim();
                 estudiantes.push(nombre);
 
-                let option = document.createElement("option");
-                option.value = nombre;
-                option.text = nombre;
-                document.getElementById("estudiante").appendChild(option);
+                let op = document.createElement("option");
+                op.value = nombre;
+                op.text = nombre;
+                document.getElementById("estudiante").appendChild(op);
             }
         }
 
-        alert("Estudiantes cargados correctamente");
+        mostrarTablaGeneral();
+        alert("Cargado");
     };
 
     reader.readAsArrayBuffer(file);
 }
 
-// guardar puntaje
+// guardar
 function guardar() {
-    let sesion = document.getElementById("sesion").value;
-    let estudiante = document.getElementById("estudiante").value;
-    let puntaje = document.getElementById("nivel").value;
+    let s = document.getElementById("sesion").value;
+    let e = document.getElementById("estudiante").value;
+    let p = document.getElementById("nivel").value;
 
-    if (!sesion || !estudiante || puntaje === "") {
-        return alert("Complete todos los campos");
-    }
+    if (!s || !e || p === "") return alert("Complete");
 
-    if (!registros[estudiante]) {
-        registros[estudiante] = {};
-    }
+    if (!registros[e]) registros[e] = {};
+    registros[e][s] = parseInt(p);
 
-    registros[estudiante][sesion] = puntaje;
-
-    mostrarResumen(estudiante);
+    mostrarResumen(e);
+    mostrarTablaGeneral();
 }
 
 // resumen
-function mostrarResumen(estudiante) {
-    let html = "<h4>Resumen de " + estudiante + "</h4><table border='1'><tr><th>Sesión</th><th>Puntaje</th></tr>";
+function mostrarResumen(e) {
+    let html = "<h4>" + e + "</h4><table><tr><th>S</th><th>P</th></tr>";
+    let t = 0;
 
-    let total = 0;
-
-    for (let s in registros[estudiante]) {
-        html += "<tr><td>Sesión " + s + "</td><td>" + registros[estudiante][s] + "</td></tr>";
-        total += parseInt(registros[estudiante][s]);
+    for (let s in registros[e]) {
+        html += "<tr><td>" + s + "</td><td>" + registros[e][s] + "</td></tr>";
+        t += registros[e][s];
     }
 
-    html += "<tr><td><strong>Total</strong></td><td><strong>" + total + "</strong></td></tr>";
-    html += "</table>";
+    html += "<tr><td>Total</td><td>" + t + "</td></tr></table>";
 
     document.getElementById("resultado").innerHTML = html;
+}
+
+// tabla general
+function mostrarTablaGeneral() {
+    let html = "<table><tr><th>Estudiante</th>";
+
+    for (let i = 1; i <= 7; i++) html += "<th>S" + i + "</th>";
+
+    html += "<th>Total</th></tr>";
+
+    for (let e of estudiantes) {
+        let t = 0;
+        html += "<tr><td>" + e + "</td>";
+
+        for (let i = 1; i <= 7; i++) {
+            let v = (registros[e] && registros[e][i]) ? registros[e][i] : 0;
+            html += "<td>" + v + "</td>";
+            t += v;
+        }
+
+        html += "<td>" + t + "</td></tr>";
+    }
+
+    html += "</table>";
+    document.getElementById("tablaGeneral").innerHTML = html;
+}
+
+// exportar
+function exportarHTML() {
+
+let html = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Resultados</title>
+<style>
+body{font-family:Arial;padding:20px;background:#f5f5f5}
+table{width:100%;border-collapse:collapse}
+td,th{border:1px solid #ccc;padding:6px;text-align:center}
+th{background:#0056b3;color:white}
+</style>
+</head>
+<body>
+<h2>Resultados</h2>
+<table>
+<tr><th>Estudiante</th>`;
+
+for (let i=1;i<=7;i++) html += "<th>S"+i+"</th>";
+
+html += "<th>Total</th></tr>";
+
+for (let e of estudiantes) {
+    let t=0;
+    html += "<tr><td>"+e+"</td>";
+
+    for (let i=1;i<=7;i++) {
+        let v=(registros[e] && registros[e][i])?registros[e][i]:0;
+        html += "<td>"+v+"</td>";
+        t+=v;
+    }
+
+    html += "<td>"+t+"</td></tr>";
+}
+
+html += "</table></body></html>";
+
+let blob = new Blob([html], {type:"text/html"});
+let a = document.createElement("a");
+a.href = URL.createObjectURL(blob);
+a.download = "resultados.html";
+a.click();
 }
 
 </script>
