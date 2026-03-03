@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Registro de Participación</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    padding: 30px;
+    background-color: #f5f5f5;
+}
+
+.container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 500px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+h2 { margin-top: 0; }
+
+select, input, button {
+    width: 100%;
+    padding: 8px;
+    margin: 8px 0;
+}
+
+button {
+    background-color: #0056b3;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #003d82;
+}
+
+.tabla {
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.tabla td {
+    padding: 5px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+
+<h2>Registro de Participación</h2>
+
+<!-- EXCEL -->
+<h3>📂 Cargar desde Excel</h3>
+
+<label>Número de alumnos:</label>
+<input type="number" id="numAlumnos" placeholder="Ej: 30">
+
+<label>Subir Excel:</label>
+<input type="file" id="excelFile" accept=".xlsx, .xls">
+
+<button onclick="cargarExcel()">Cargar estudiantes desde Excel</button>
+
+<hr>
+
+<!-- MANUAL -->
+<h3>1️⃣ Registrar Estudiante</h3>
+<input type="text" id="nuevoEstudiante" placeholder="Nombre del estudiante">
+<button onclick="agregarEstudiante()">Agregar</button>
+
+<hr>
+
+<!-- PARTICIPACIÓN -->
+<h3>2️⃣ Asignar Participación</h3>
+
+<label>Sesión:</label>
+<select id="sesion">
+    <option value="">Seleccione sesión</option>
+</select>
+
+<label>Estudiante:</label>
+<select id="estudiante">
+    <option value="">Seleccione estudiante</option>
+</select>
+
+<label>Nivel de rúbrica:</label>
+<select id="nivel">
+    <option value="">Seleccione nivel</option>
+    <option value="8">Destacado (8)</option>
+    <option value="6">Logrado (6)</option>
+    <option value="4">Intermedio (4)</option>
+    <option value="2">En proceso (2)</option>
+    <option value="0">En inicio (0)</option>
+</select>
+
+<button onclick="guardar()">Guardar Puntaje</button>
+
+<div class="tabla" id="resultado"></div>
+
+</div>
+
+<script>
+
+let estudiantes = [];
+let registros = {};
+
+// sesiones
+for (let i = 1; i <= 7; i++) {
+    let option = document.createElement("option");
+    option.value = i;
+    option.text = "Sesión " + i;
+    document.getElementById("sesion").appendChild(option);
+}
+
+// agregar manual
+function agregarEstudiante() {
+    let nombre = document.getElementById("nuevoEstudiante").value.trim();
+    if (nombre === "") return alert("Ingrese nombre");
+
+    estudiantes.push(nombre);
+
+    let option = document.createElement("option");
+    option.value = nombre;
+    option.text = nombre;
+    document.getElementById("estudiante").appendChild(option);
+
+    document.getElementById("nuevoEstudiante").value = "";
+}
+
+// cargar desde excel
+function cargarExcel() {
+    let fileInput = document.getElementById("excelFile");
+    let numAlumnos = parseInt(document.getElementById("numAlumnos").value);
+
+    if (!fileInput.files.length) {
+        return alert("Seleccione un archivo Excel");
+    }
+
+    if (!numAlumnos || numAlumnos <= 0) {
+        return alert("Ingrese número de alumnos válido");
+    }
+
+    let file = fileInput.files[0];
+    let reader = new FileReader();
+
+    reader.onload = function(e) {
+        let data = new Uint8Array(e.target.result);
+        let workbook = XLSX.read(data, { type: 'array' });
+
+        let sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // limpiar lista previa
+        estudiantes = [];
+        document.getElementById("estudiante").innerHTML = '<option value="">Seleccione estudiante</option>';
+
+        for (let i = 2; i < 2 + numAlumnos; i++) {
+            let cell = sheet["E" + i];
+
+            if (cell && cell.v) {
+                let nombre = cell.v.toString().trim();
+
+                estudiantes.push(nombre);
+
+                let option = document.createElement("option");
+                option.value = nombre;
+                option.text = nombre;
+                document.getElementById("estudiante").appendChild(option);
+            }
+        }
+
+        alert("Estudiantes cargados correctamente");
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+// guardar puntaje
+function guardar() {
+    let sesion = document.getElementById("sesion").value;
+    let estudiante = document.getElementById("estudiante").value;
+    let puntaje = document.getElementById("nivel").value;
+
+    if (!sesion || !estudiante || puntaje === "") {
+        return alert("Complete todos los campos");
+    }
+
+    if (!registros[estudiante]) {
+        registros[estudiante] = {};
+    }
+
+    registros[estudiante][sesion] = puntaje;
+
+    mostrarResumen(estudiante);
+}
+
+// resumen
+function mostrarResumen(estudiante) {
+    let html = "<h4>Resumen de " + estudiante + "</h4><table border='1'><tr><th>Sesión</th><th>Puntaje</th></tr>";
+
+    let total = 0;
+
+    for (let s in registros[estudiante]) {
+        html += "<tr><td>Sesión " + s + "</td><td>" + registros[estudiante][s] + "</td></tr>";
+        total += parseInt(registros[estudiante][s]);
+    }
+
+    html += "<tr><td><strong>Total</strong></td><td><strong>" + total + "</strong></td></tr>";
+    html += "</table>";
+
+    document.getElementById("resultado").innerHTML = html;
+}
+
+</script>
+
+</body>
+</html>
